@@ -67,6 +67,8 @@ return{from:a,to:d.toISOString().slice(0,10),mats:nm.map((n,i)=>({id:uid(),name:
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S)S=def();
 if(!S.saleTotal)S.saleTotal={};if(S.wasteOn===undefined)S.wasteOn=true;
+if(!S.expCats)S.expCats=['إيجار','كهرباء','ماء','إنترنت واتصالات','صيانة','نقل وتوصيل'];
+{const seen=new Set(S.expCats);S.exp.forEach(e=>{if(e.n&&!seen.has(e.n)){seen.add(e.n);S.expCats.push(e.n)}})}
 const pk=()=>S.from+'|'+S.to;
 if(!S.stock){S.stock={};const o={};S.mats.forEach(m=>{if(m.op||m.cl)o[m.id]={op:m.op,cl:m.cl}});S.stock[pk()]=o}
 function st(id){const cur=(S.stock[pk()]||{})[id]||{};let op=cur.op,auto=false,best=null;
@@ -134,7 +136,8 @@ ${salesGrid(o)}
 <div class="card"><h2>المشتريات</h2>${tb.map(b=>`<div class="row"><span>${(M(b.mid)||{}).name} — كمية ${b.q} — ${f(b.c)}</span><button class="d" onclick="Del('buys','${b.id}')">✕</button></div>`).join('')}
 <div class="row"><select id="bm">${S.mats.map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}</select><input id="bq" type="number" step="any" placeholder="الكمية"><input id="bc" type="number" step="any" placeholder="التكلفة"><button class="b" onclick="AddBuy()">+ إضافة</button></div></div>
 <div class="card"><h2>المصاريف الثابتة/التشغيلية</h2>${te.map(e=>`<div class="row"><span>${e.n} — ${f(e.a)}</span><button class="d" onclick="Del('exp','${e.id}')">✕</button></div>`).join('')}
-<div class="row"><input id="en" placeholder="البند (إيجار، كهرباء...)"><input id="ea" type="number" step="any" placeholder="المبلغ"><button class="b" onclick="AddExp()">+ إضافة</button></div></div>`},
+<div class="row"><select id="ec" onchange="ecNew=(this.value=='__new__');R()">${S.expCats.map(c=>`<option>${c}</option>`).join('')}<option value="__new__" ${ecNew?'selected':''}>+ فئة جديدة</option></select>${ecNew?'<input id="ecn" placeholder="اسم الفئة الجديدة">':''}<input id="ea" type="number" step="any" placeholder="المبلغ"><button class="b" onclick="AddExp()">+ إضافة</button></div>
+<p class="m">لو نفس البند اتدفع أكثر من مرة بالفترة (مثلاً كهرباء دفعتين)، بيتجمعوا سوا كسطر واحد بالتقرير.</p></div>`},
 sal(){const c=calc();return`<div class="card"><h2>الرواتب (شهرية، تُحتسب حسب أيام الفترة)</h2>${S.sal.map(s=>`<div class="row"><input value="${s.n}" onchange="U('sal','${s.id}','n',this.value)"><input type="number" value="${s.a}" onchange="U('sal','${s.id}','a',this.value)"><button class="d" onclick="Del('sal','${s.id}')">✕</button></div>`).join('')}
 <button class="b" onclick="Add('sal',{n:'موظف',a:0})">+ موظف</button><p>إجمالي الرواتب للفترة: <b>${f(c.sal)}</b></p></div>`},
 rep(){const c=calc();return`<button class="b np" onclick="doPrint()">🖨️ طباعة</button> <button class="b s np" onclick="saveRep()">⬇️ حفظ التقرير كملف (للطباعة)</button><h2 id="pt">شاورما الناصر — تقرير الفترة</h2>${summary(c)}
@@ -142,7 +145,7 @@ rep(){const c=calc();return`<button class="b np" onclick="doPrint()">🖨️ ط�
 <div class="card"><h2>المواد: استخدام وهدر</h2>${c.wasteOn?'':'<p class="m">⚠️ تم إيقاف احتساب الهدر لهذه الفترة.</p>'}<table><tr><th>المادة</th><th>مستخدم</th><th>هدر</th><th>قيمته</th></tr>${c.rows.filter(r=>r.act||r.th).sort((a,b)=>b.wv-a.wv).map(r=>`<tr><td>${r.m.name}</td><td>${f(r.act)}</td><td>${c.wasteOn?f(r.waste):'—'}</td><td>${c.wasteOn?f(r.wv):'—'}</td></tr>`).join('')}</table></div></div>
 <div class="card"><h2>الحساب</h2><table><tr><td>بضاعة أول المدة</td><td>${f(c.opV)}</td></tr><tr><td>+ المشتريات</td><td>${f(c.buyT)}</td></tr><tr><td>− بضاعة آخر المدة</td><td>${f(c.clV)}</td></tr><tr><td><b>= تكلفة البضاعة المباعة</b></td><td><b>${f(c.cogs)}</b></td></tr></table></div>
 <div class="card"><h2>🤝 ذمم الموردين</h2>${supTable()}</div>
-<div class="card"><h2>المصاريف والرواتب</h2><table>${S.exp.filter(e=>inP(e.d)).map(e=>`<tr><td>${e.d} ${e.n}</td><td>${f(e.a)}</td></tr>`).join('')}${S.sal.map(s=>`<tr><td>راتب ${s.n}</td><td>${f(n0(s.a)*c.days/30)}</td></tr>`).join('')}</table></div>`}};
+<div class="card"><h2>المصاريف والرواتب</h2><table>${Object.entries(expByCat()).map(([n,a])=>`<tr><td>${n}</td><td>${f(a)}</td></tr>`).join('')}${S.sal.map(s=>`<tr><td>راتب ${s.n}</td><td>${f(n0(s.a)*c.days/30)}</td></tr>`).join('')}</table></div>`}};
 function U(k,id,p,v){const o=S[k].find(x=>x.id==id);o[p]=['name','n','u'].includes(p)?v:+v;save();R()}
 function Add(k,o){S[k].push({id:uid(),...o});save();R()}
 let pend='';
@@ -152,7 +155,8 @@ function G(rid,i,p,v){const r=S.recs.find(x=>x.id==rid);if(p=='add'){if(!S.mats.
 function Sale(rid,v){(S.sales[day]=S.sales[day]||{})[rid]=+v;save()}
 function SetTotal(k,v){const o=S.saleTotal[day]=S.saleTotal[day]||{};o[k]=+v||0;if(!o.cash&&!o.visa&&!o.transfer)delete S.saleTotal[day];save();R()}
 function AddBuy(){const q=$('#bq').value,c=$('#bc').value;if(!q||!c)return;S.buys.push({id:uid(),d:day,mid:$('#bm').value,q:+q,c:+c});save();R()}
-function AddExp(){const n=$('#en').value,a=$('#ea').value;if(!n||!a)return;S.exp.push({id:uid(),d:day,n,a:+a});save();R()}
+function AddExp(){const isNew=$('#ec').value=='__new__';const n=(isNew?($('#ecn')?$('#ecn').value:''):$('#ec').value).trim();const a=$('#ea').value;if(!n||!a)return alert('اختر أو اكتب اسم البند، واكتب المبلغ');if(!S.expCats.includes(n))S.expCats.push(n);S.exp.push({id:uid(),d:day,n,a:+a});ecNew=false;save();R()}
+function expByCat(){const g={};S.exp.filter(e=>inP(e.d)).forEach(e=>{g[e.n]=(g[e.n]||0)+n0(e.a)});return g}
 function NewMat(){const n=$('#mn').value.trim();if(!n)return alert('اكتب اسم المادة');S.mats.push({id:uid(),name:n,u:$('#mu').value,price:+$('#mp').value||0,op:0,cl:0});save();R()}
 function NewRec(){const n=$('#rnm').value.trim();if(!n)return alert('اكتب اسم الوجبة');S.recs.push({id:uid(),name:n,price:+$('#rpr').value||0,ing:[]});save();R()}
 function NewIng(id){const q=+$('#gq'+id).value;if(!q)return alert('اكتب الكمية');S.recs.find(r=>r.id==id).ing.push({mid:$('#gm'+id).value,q});save();R()}
@@ -207,7 +211,7 @@ ${m?`<div class="card"><h2>دفتر المورد</h2><div class="row"><select on
 <div class="k"><div><small>الرصيد المستحق</small><b class="${t.bal>0?'neg':'pos'}">${f(t.bal)}</b></div><div><small>شيكات آجلة</small><b>${f(t.chq)}</b></div><div><small>الرصيد بعد الشيكات</small><b>${f(t.after)}</b></div></div>
 <div class="frm row" style="margin-top:10px"><input type="date" id="id" value="${day}"><input id="in" placeholder="رقم الفاتورة" style="width:110px"><input id="ia" type="number" step="any" placeholder="قيمة الفاتورة" style="width:110px"><input id="ip" type="number" step="any" placeholder="مدفوع" style="width:90px"><input id="ic" type="number" step="any" placeholder="شيك آجل" style="width:90px"><button class="b" onclick="AddInv()">+ إضافة</button></div>
 <div class="w"><table><tr><th>التاريخ</th><th>رقم</th><th>الفاتورة</th><th>مدفوع</th><th>شيك آجل</th><th>الرصيد</th><th></th></tr>${rows.map(x=>{run+=n0(x.amt)-n0(x.paid);return`<tr><td>${x.d||''}</td><td>${x.no||''}</td><td>${f(x.amt)}</td><td>${f(x.paid)}</td><td>${f(x.chq)}</td><td>${f(run)}</td><td><button class="d" onclick="Del('inv','${x.id}')">✕</button></td></tr>`}).join('')}</table></div></div>`:''}`};
-let mv=true,qa='';
+let mv=true,qa='',ecNew=false;
 function SetCnt(id,w,v){const d=w=='op'?S.from:S.to;const o=S.counts[d]=S.counts[d]||{};if(v==='')delete o[id];else o[id]=+v;if(!Object.keys(o).length)delete S.counts[d];save();R()}
 function AddBuy2(id){const q=$('#pq').value,c=$('#pc').value;if(!q||!c)return alert('أدخل الكمية والتكلفة');S.buys.push({id:uid(),d:$('#pd').value||S.to,mid:id,q:+q,c:+c});qa='';save();R()}
 function NewCount(w){const d=$('#nd').value;if(!d)return alert('اختر التاريخ');if(w=='op'){S.from=d;if(S.to<d)S.to=d}else{S.to=d;if(S.from>d)S.from=d}save();R()}
